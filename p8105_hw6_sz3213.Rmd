@@ -162,3 +162,81 @@ The distribution of $log(\hat{\beta_1} * \hat{\beta_2})$ is heavily left-skewed,
 bw_df <-
   read_csv("data/birthweight.csv", na = c("", "."))
 ```
+
+data cleaning
+
+```{r data cleaning}
+bw_df_clean <-
+  bw_df |> 
+  mutate(
+    babysex = as.factor(babysex),
+    frace = as.factor(frace),
+    malform = as.factor(malform),
+    mrace = as.factor(mrace)
+  ) |> 
+  select(bwt, everything())
+```
+
+
+```{r fit the model}
+hypo_model = lm(bwt ~ bhead + blength + delwt + gaweeks + malform + smoken , data = bw_df_clean)
+summary(hypo_model) |> broom::tidy()
+# because malform has p-value > 0.05, we remove it from the model
+my_model = lm(bwt ~ bhead + blength + delwt + gaweeks + smoken , data = bw_df_clean)
+summary(my_model) |> broom::tidy()
+```
+
+I first hypothesized factors that are likely contributing to children's birth weights as the primary model. I included six predictors: `bhead`, `blength`, `delwt`, `gaweeks`, `malform`, and `smoken`. Then I performed the backword elimination to examine if all predictors are significant. The coefficient of `malform` variable has the greatest p-value which is 0.61, and this value is greater than the threshold of $\alpha$ equals 0.05, so I excluded it from the model and refit the rest predictors. The re-fitted model have five predictors and all coefficients have p-values less than 0.05. Thus, I will keep all predictors and conclude that the final model includes `bhead`, `blength`, `delwt`, `gaweeks`, and `smoken`. 
+
+
+```{r residuals - fitted values}
+bw_df_clean |> 
+  add_predictions(my_model) |> 
+  add_residuals(my_model) |> 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth() +
+  labs(title = "Model residuals against fitted values")
+```
+
+```{r cross validation}
+# cv
+model_1 = lm(bwt ~ blength + gaweeks, data = bw_df_clean)
+model_2 = lm(bwt ~ bhead + blength + babysex + 
+               bhead * blength + bhead * babysex + blength * babysex, data = bw_df_clean)
+cv_df <-
+  crossv_mc(bw_df_clean, 100) 
+
+cv_df <-  
+  cv_df |> 
+  mutate(
+    my_model  = map(train, \(df) lm(bwt ~ bhead + blength + delwt + gaweeks + smoken, 
+                                    data = df)),
+    model_1  = map(train, \(df) lm(bwt ~ blength + gaweeks, data = df)),
+    model_2  = map(train, \(df) lm(bwt ~ bhead + blength + babysex + 
+               bhead * blength + bhead * babysex + blength * babysex, data = df))) |> 
+  mutate(
+    rmse_my_model = map2_dbl(my_model, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_model_1 = map2_dbl(model_1, test, \(mod, df) rmse(model = mod, data = df)),
+    rmse_model_2 = map2_dbl(model_2, test, \(mod, df) rmse(model = mod, data = df)))
+```
+
+
+```{r violin plot}
+cv_df |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") |> 
+  mutate(model = fct_inorder(model)) |> 
+  ggplot(aes(x = model, y = rmse, fill = model)) + geom_violin()
+```
+
+According to the violin plot, my_model has the lowest rmse, and model_2 has a slightly higher rmse than my_model. Model_1 has a much higher rmse compared to the other models, which implies the predictions made using this model could be less accurate than the other two.
+
+
+
+
+
