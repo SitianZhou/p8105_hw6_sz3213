@@ -21,7 +21,7 @@ theme_set(theme_minimal())
 
 ## Problem 1
 
-```{r}
+```{r homicide data cleaning}
 homicide_df <-
   read_csv("data/homicide-data.csv") |> 
   mutate(
@@ -34,7 +34,7 @@ homicide_df <-
   drop_na()
 ```
 
-```{r}
+```{r fit glm}
 # fit glm
 fit_logistic =
   homicide_df |> 
@@ -51,7 +51,7 @@ fit_logistic |>
   knitr::kable(digits = 3)
 ```
 
-```{r}
+```{r OR for each city}
 # loop over each city
 results_df <-
   homicide_df |>
@@ -74,7 +74,7 @@ results_df |>
   
 ```
 
-```{r}
+```{r plot for OR and CI for each city}
 #plots
 results_df |> 
   mutate(city_state = fct_reorder(city_state, OR)) |> 
@@ -83,7 +83,7 @@ results_df |>
   geom_errorbar(aes(ymin = OR_CI_lower, ymax = OR_CI_upper)) + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
-
+From the plot, most cities have odds ratios that are smaller than 1, which suggests that crimes with male victims have smaller odds of resolution compared to crimes with female victims after adjusting for victim age and race. However, Albuquerque, NM has a much higher OR compare to the rest of the cities, which implies that crimes with female victims have smaller odds of resolution.
 
 ## Problem 2
 
